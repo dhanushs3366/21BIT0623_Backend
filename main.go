@@ -23,7 +23,10 @@ func main() {
 		panic(err)
 	}
 
-	h := handler.Init(DB)
+	h, err := handler.Init(DB)
+	if err != nil {
+		panic(err)
+	}
 
 	err = h.Run(SERVER_PORT)
 
