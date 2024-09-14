@@ -1,0 +1,33 @@
+version: '3.8'
+
+services:
+  go-server:
+    build: .
+    ports:
+      - "8080:8080"
+    volumes:
+      - .:/app
+      - /app/tmp
+    environment:
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=munke
+      - DB_PASSWORD=trademarkia
+      - DB_NAME=trademarkia
+    depends_on:
+      - postgres
+
+  postgres:
+    image: postgres:latest
+    restart: always
+    environment:
+      POSTGRES_USER: munke
+      POSTGRES_PASSWORD: trademarkia
+      POSTGRES_DB: trademarkia
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+volumes:
+  postgres-data:
