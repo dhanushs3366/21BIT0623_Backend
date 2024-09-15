@@ -7,6 +7,7 @@ import (
 
 	"github.com/dhanushs3366/21BIT0623_Backend.git/services"
 	"github.com/dhanushs3366/21BIT0623_Backend.git/services/db"
+	"github.com/dhanushs3366/21BIT0623_Backend.git/services/s3service"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 )
@@ -14,12 +15,20 @@ import (
 type Hanlder struct {
 	router *echo.Echo
 	store  *db.Store
+	s3     *s3service.S3Service
 }
 
-func Init(database *sql.DB) *Hanlder {
+func Init(database *sql.DB) (*Hanlder, error) {
+
+	s3Client, err := s3service.GetNewS3Client()
+	if err != nil {
+		return nil, err
+	}
+
 	h := Hanlder{
 		router: echo.New(),
 		store:  db.GetNewStore(database),
+		s3:     s3Client,
 	}
 
 	userGroup := h.router.Group("/user")
@@ -40,8 +49,11 @@ func Init(database *sql.DB) *Hanlder {
 	userGroup.GET("/hello", func(c echo.Context) error {
 		return c.JSON(http.StatusOK, "hello")
 	})
+	userGroup.POST("/upload", h.uploadFile)
+	// userGroup.GET("/files", h.getPreSignedURL)
+	userGroup.GET("/files/metadata", h.getFileMetadata)
 
-	return &h
+	return &h, nil
 }
 
 func (h *Hanlder) Run(port string) error {
