@@ -49,8 +49,9 @@ func Init(database *sql.DB) (*Hanlder, error) {
 	userGroup.GET("/hello", func(c echo.Context) error {
 		return c.JSON(http.StatusOK, "hello")
 	})
-	userGroup.POST("/upload", h.uploadFile)
-	// userGroup.GET("/files", h.getPreSignedURL)
+	userGroup.POST("/upload", h.handleFileUpload)
+	userGroup.POST("/upload/bulk", h.handleBulkUpload)
+	userGroup.GET("/files", h.getPreSignedURL)
 	userGroup.GET("/files/metadata", h.getFileMetadata)
 
 	return &h, nil
