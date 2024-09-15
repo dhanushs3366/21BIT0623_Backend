@@ -50,6 +50,8 @@ func Init(database *sql.DB) (*Hanlder, error) {
 		return c.JSON(http.StatusOK, "hello")
 	})
 	userGroup.POST("/upload", h.uploadFile)
+	// userGroup.GET("/files", h.getPreSignedURL)
+	userGroup.GET("/files/metadata", h.getFileMetadata)
 
 	return &h, nil
 }

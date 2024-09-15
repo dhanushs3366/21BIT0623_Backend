@@ -89,3 +89,28 @@ func ValidateJWT(next echo.HandlerFunc) echo.HandlerFunc {
 		return next(c)
 	}
 }
+
+func GetUserIDFromToken(c echo.Context) (uint, error) {
+	cookie, err := c.Cookie("auth_token")
+	JWT_SECRET := os.Getenv("JWT_SECRET")
+
+	if err != nil {
+		return 0, err
+	}
+
+	tokenStr := cookie.Value
+
+	token, err := jwt.ParseWithClaims(tokenStr, &UserClaims{}, func(token *jwt.Token) (interface{}, error) {
+		return []byte(JWT_SECRET), nil
+	})
+
+	if err != nil {
+		return 0, err
+	}
+
+	if claims, ok := token.Claims.(*UserClaims); ok && token.Valid {
+		return claims.ID, nil
+	}
+
+	return 0, errors.New("invalid token")
+}

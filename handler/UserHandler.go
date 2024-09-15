@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"log"
 	"net/http"
 	"time"
 
@@ -28,9 +29,10 @@ func (h *Hanlder) register(c echo.Context) error {
 }
 
 func (h *Hanlder) login(c echo.Context) error {
-	username := c.FormValue("username")
+	username := c.FormValue("username") // SQL INJECTION COULD HAPPEN PREVENT IT
 	password := c.FormValue("password")
 
+	log.Printf("username: %s\n", username)
 	user, err := h.store.GetUser(username)
 
 	if err != nil {

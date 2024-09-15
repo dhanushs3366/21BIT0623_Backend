@@ -3,6 +3,7 @@ package s3service
 import (
 	"mime/multipart"
 	"os"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
@@ -37,13 +38,9 @@ func GetNewS3Client() (*S3Service, error) {
 	}, err
 }
 
-func (c *S3Service) PutObject(file multipart.File, header multipart.FileHeader) error {
-	key, err := generateKeyForS3(header.Filename)
-	if err != nil {
-		return err
-	}
+func (c *S3Service) PutObject(file multipart.File, header multipart.FileHeader, key string) error {
 
-	_, err = c.client.PutObject(&s3.PutObjectInput{
+	_, err := c.client.PutObject(&s3.PutObjectInput{
 		Bucket:        aws.String(c.bucketName),
 		Key:           aws.String(key),
 		Body:          file,
@@ -52,4 +49,19 @@ func (c *S3Service) PutObject(file multipart.File, header multipart.FileHeader) 
 	})
 
 	return err
+}
+
+func (c *S3Service) GeneratePresignedURL(objectKey string, expiration time.Duration) (string, error) {
+	req, _ := c.client.PutObjectRequest(&s3.PutObjectInput{
+		Bucket: aws.String(c.bucketName),
+		Key:    aws.String(objectKey),
+	})
+
+	presignedURL, err := req.Presign(expiration)
+
+	if err != nil {
+		return "", err
+	}
+
+	return presignedURL, err
 }

@@ -48,9 +48,21 @@ func sync() error {
 	if err != nil {
 		return err
 	}
-
 	log.Print("Created user table")
 
+	err = store.CreateFileTable()
+	if err != nil {
+		return err
+	}
+	log.Println("File Table created")
+
+	err = store.CreateFileMetaDataTable()
+
+	if err != nil {
+		return err
+	}
+
+	log.Println("File meta data table created")
 	return nil
 }
 

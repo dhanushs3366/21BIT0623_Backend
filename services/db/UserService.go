@@ -3,6 +3,7 @@ package db
 import (
 	"database/sql"
 	"errors"
+	"time"
 
 	"github.com/dhanushs3366/21BIT0623_Backend.git/models"
 )
@@ -21,7 +22,9 @@ func (s *Store) CreateUserTable() error {
 			ID INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
 			USERNAME VARCHAR(255) UNIQUE NOT NULL,
 			PASSWORD VARCHAR(255) NOT NULL,
-			EMAIL VARCHAR(255) UNIQUE NOT NULL
+			EMAIL VARCHAR(255) UNIQUE NOT NULL,
+			CREATED_AT TIMESTAMP NOT NULL,
+			UPDATED_AT TIMESTAMP NOT NULL
 		)
 	`
 
@@ -32,10 +35,11 @@ func (s *Store) CreateUserTable() error {
 
 func (s *Store) CreateUser(username, password, email string) error {
 	query := `
-		INSERT INTO USERS (USERNAME,PASSWORD,EMAIL)
-		VALUES($1,$2,$3)
+		INSERT INTO USERS (USERNAME,PASSWORD,EMAIL,CREATED_AT,UPDATED_AT)
+		VALUES($1,$2,$3,$4,$5)
 	`
-	_, err := s.db.Exec(query, username, password, email)
+	now := time.Now()
+	_, err := s.db.Exec(query, username, password, email, now, now)
 
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -55,7 +59,7 @@ func (s *Store) GetUser(username string) (*models.User, error) {
 
 	row := s.db.QueryRow(query, username)
 	var user models.User
-	err := row.Scan(&user.ID, &user.Username, &user.Password, &user.Email)
+	err := row.Scan(&user.ID, &user.Username, &user.Password, &user.Email, &user.CreatedAt, &user.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}
