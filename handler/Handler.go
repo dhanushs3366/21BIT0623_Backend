@@ -60,6 +60,7 @@ func Init(database *sql.DB) (*Hanlder, error) {
 	userGroup.POST("/upload/bulk", h.handleBulkUpload)
 	userGroup.GET("/files/metadata", h.getFileMetadata)
 	userGroup.GET("/share", h.getPublicURL)
+	userGroup.GET("/files/search", h.searchFiles)
 
 	return &h, nil
 }

@@ -3,6 +3,7 @@ package redisservice
 import (
 	"context"
 	"encoding/json"
+	"log"
 	"os"
 	"time"
 
@@ -36,26 +37,30 @@ func GetNewRedisClient() (*RedisClient, error) {
 // cache metadata
 // key-> user:userID:file:fileID
 // value -> metadata obj
-func (r *RedisClient) Add(key string, value *models.FileMetaData) error {
+func (r *RedisClient) Add(key string, value []models.FileMetaData) error {
 	jsonValue, err := json.Marshal(value)
 	if err != nil {
 		return err
 	}
 
 	err = r.client.Set(context.Background(), key, jsonValue, EXPIRATION_TIME).Err()
-	return err
+	if err != nil {
+		return err
+	}
+	log.Printf("Added %s to cache\n", key)
+	return nil
 }
 
-func (r *RedisClient) Get(Key string) (*models.FileMetaData, error) {
+func (r *RedisClient) Get(Key string) ([]models.FileMetaData, error) {
 	jsonValue, err := r.client.Get(context.Background(), Key).Result()
 
 	if err != nil {
 		return nil, err
 	}
-	var metadata models.FileMetaData
+	var metadata []models.FileMetaData
 	err = json.Unmarshal([]byte(jsonValue), &metadata)
 	if err != nil {
 		return nil, err
 	}
-	return &metadata, nil
+	return metadata, nil
 }
