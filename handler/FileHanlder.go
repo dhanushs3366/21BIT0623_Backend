@@ -2,11 +2,13 @@ package handler
 
 import (
 	"fmt"
+	"log"
 	"mime/multipart"
 	"net/http"
 	"sync"
 	"time"
 
+	"github.com/dhanushs3366/21BIT0623_Backend.git/models"
 	"github.com/dhanushs3366/21BIT0623_Backend.git/services"
 	"github.com/dhanushs3366/21BIT0623_Backend.git/services/s3service"
 	"github.com/labstack/echo/v4"
@@ -68,7 +70,7 @@ func (h *Hanlder) handleFileUpload(c echo.Context) error {
 	}
 
 	// Cache meta data
-	err = h.redis.Add(fmt.Sprintf("user:%d:file:%d", userID, latesFile.ID), metadata)
+	err = h.redis.Add(fmt.Sprintf("user:%d:file:%d", userID, latesFile.ID), []models.FileMetaData{*metadata})
 
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, err.Error())
@@ -206,4 +208,81 @@ func (h *Hanlder) getPublicURL(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, map[string]string{"url": URL})
+}
+
+func (h *Hanlder) searchFiles(c echo.Context) error {
+	fileName := c.QueryParam("name")
+	fileTypeStr := c.QueryParam("type")
+	fromDateStr := c.QueryParam("fromDate")
+	toDateStr := c.QueryParam("toDate")
+
+	userID, err := services.GetUserIDFromToken(c)
+	if err != nil {
+		return c.JSON(http.StatusUnauthorized, err.Error())
+	}
+
+	cacheKey := fmt.Sprintf("user-%d:fileType-%s:fileName-%s:fromDate-%s:toDate-%s", userID, fileTypeStr, fileName, fromDateStr, toDateStr)
+
+	// Check the cache first
+	cachedMetadata, err := h.redis.Get(cacheKey)
+	if err == nil {
+		return c.JSON(http.StatusOK, cachedMetadata)
+	}
+
+	var startDate, endDate time.Time
+	if fromDateStr != "" {
+		startDate, err = time.Parse(time.RFC3339, fromDateStr)
+		if err != nil {
+			return c.JSON(http.StatusBadRequest, "Invalid fromDate format")
+		}
+	}
+	if toDateStr != "" {
+		endDate, err = time.Parse(time.RFC3339, toDateStr)
+		if err != nil {
+			return c.JSON(http.StatusBadRequest, "Invalid toDate format")
+		}
+	}
+
+	files, err := h.store.SearchFiles(fileName, fileTypeStr, startDate, endDate)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, err.Error())
+	}
+
+	err = h.redis.Add(cacheKey, files)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, "Failed to cache data")
+	}
+
+	return c.JSON(http.StatusOK, files)
+}
+
+func (h *Hanlder) deleteExpiredFilesInBackground() error {
+	s3Keys, err := h.store.DeleteExpiredFiles()
+	if err != nil {
+		return err
+	}
+	err = h.s3.DeleteExpiredFiles(s3Keys)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (h *Hanlder) startBackgroundWorker() {
+	go func() {
+		ticker := time.NewTicker(1 * time.Hour)
+		defer ticker.Stop()
+		// ticker starts every hour
+		// ticker channel recieves the ticker time.Time
+		//  it will trigger the switch case and the execute it in bg
+		for {
+			select {
+			case <-ticker.C:
+				err := h.deleteExpiredFilesInBackground()
+				if err != nil {
+					log.Printf("Error deleting expired files: %v", err)
+				}
+			}
+		}
+	}()
 }

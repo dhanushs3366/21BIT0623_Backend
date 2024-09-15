@@ -1,6 +1,8 @@
 package db
 
 import (
+	"log"
+	"strings"
 	"time"
 
 	"github.com/dhanushs3366/21BIT0623_Backend.git/models"
@@ -18,7 +20,9 @@ func (s *Store) CreateFileMetaDataTable() error {
 			CONTENT_TYPE VARCHAR(255),
 			UPLOAD_DATE TIMESTAMP,
 			DESCRIPTION TEXT,
-			CONSTRAINT unique_file_id UNIQUE(FILE_ID)
+			
+			CONSTRAINT unique_file_id UNIQUE(FILE_ID),
+			FOREIGN KEY (FILE_ID) REFERENCES FILES(ID) ON DELETE CASCADE
 		)
 	`
 
@@ -84,4 +88,50 @@ func (s *Store) GetLatestMetaData() (*models.FileMetaData, error) {
 		return nil, err
 	}
 	return &metadata, nil
+}
+
+// get the last uploaded file's metadata
+func (s *Store) SearchFiles(name, fileType string, startDate, endDate time.Time) ([]models.FileMetaData, error) {
+	query := "SELECT * FROM FILE_METADATA WHERE 1=1"
+	var args []interface{}
+	var conditions []string
+
+	if name != "" {
+		conditions = append(conditions, "FILE_NAME ILIKE $1")
+		args = append(args, "%"+name+"%")
+	}
+	if fileType != "" {
+		conditions = append(conditions, "CONTENT_TYPE  ILIKE $2")
+		args = append(args, "%"+fileType+"%")
+	}
+	if !startDate.IsZero() && !endDate.IsZero() {
+		conditions = append(conditions, "UPLOAD_DATE BETWEEN $3 AND $4")
+		args = append(args, startDate, endDate)
+	}
+
+	if len(conditions) > 0 {
+		query += " AND " + strings.Join(conditions, " AND ")
+	}
+
+	log.Println(args...)
+	rows, err := s.db.Query(query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var files []models.FileMetaData
+	for rows.Next() {
+		var file models.FileMetaData
+		err := rows.Scan(&file.ID, &file.FileID, &file.FileName, &file.FileSize, &file.ContentType, &file.UploadDate, &file.Description)
+		if err != nil {
+			return nil, err
+		}
+		files = append(files, file)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return files, nil
 }

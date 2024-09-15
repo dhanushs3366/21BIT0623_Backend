@@ -11,6 +11,9 @@ import (
 
 var db *sql.DB
 
+// delete objects after hrs
+const DELETION_TIME_FOR_S3_OBJECTS = 24
+
 var ErrNoEntityFound error = sql.ErrNoRows
 
 func connect() (*sql.DB, error) {
