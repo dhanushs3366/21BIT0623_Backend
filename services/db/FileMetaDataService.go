@@ -20,7 +20,9 @@ func (s *Store) CreateFileMetaDataTable() error {
 			CONTENT_TYPE VARCHAR(255),
 			UPLOAD_DATE TIMESTAMP,
 			DESCRIPTION TEXT,
-			CONSTRAINT unique_file_id UNIQUE(FILE_ID)
+			
+			CONSTRAINT unique_file_id UNIQUE(FILE_ID),
+			FOREIGN KEY (FILE_ID) REFERENCES FILES(ID) ON DELETE CASCADE
 		)
 	`
 

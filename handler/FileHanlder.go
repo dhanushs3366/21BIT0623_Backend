@@ -2,6 +2,7 @@ package handler
 
 import (
 	"fmt"
+	"log"
 	"mime/multipart"
 	"net/http"
 	"sync"
@@ -253,4 +254,35 @@ func (h *Hanlder) searchFiles(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, files)
+}
+
+func (h *Hanlder) deleteExpiredFilesInBackground() error {
+	s3Keys, err := h.store.DeleteExpiredFiles()
+	if err != nil {
+		return err
+	}
+	err = h.s3.DeleteExpiredFiles(s3Keys)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (h *Hanlder) startBackgroundWorker() {
+	go func() {
+		ticker := time.NewTicker(1 * time.Hour)
+		defer ticker.Stop()
+		// ticker starts every hour
+		// ticker channel recieves the ticker time.Time
+		//  it will trigger the switch case and the execute it in bg
+		for {
+			select {
+			case <-ticker.C:
+				err := h.deleteExpiredFilesInBackground()
+				if err != nil {
+					log.Printf("Error deleting expired files: %v", err)
+				}
+			}
+		}
+	}()
 }

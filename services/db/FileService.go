@@ -1,6 +1,8 @@
 package db
 
 import (
+	"log"
+	"strings"
 	"time"
 
 	"github.com/dhanushs3366/21BIT0623_Backend.git/models"
@@ -68,4 +70,44 @@ func (s *Store) GetLatestFileID(userID uint) (*models.File, error) {
 
 	return &file, nil
 
+}
+
+func (s *Store) DeleteExpiredFiles() ([]string, error) {
+	expirationTime := time.Now().Add(-DELETION_TIME_FOR_S3_OBJECTS * time.Hour)
+	var fileKeys []string
+
+	selectQuery := `
+		SELECT F.S3_KEY FROM FILES F
+		INNER JOIN FILE_METADATA M ON F.ID=M.FILE_ID
+		WHERE F.UPDATED_AT<=$1
+	`
+	rows, err := s.db.Query(selectQuery, expirationTime)
+	if err != nil {
+		return nil, err
+	}
+
+	for rows.Next() {
+		var fileKey string
+		err := rows.Scan(&fileKey)
+
+		if err != nil {
+			continue
+		}
+		fileKeys = append(fileKeys, fileKey)
+	}
+
+	deleteQuery := `
+		DELETE FROM FILES
+		WHERE UPDATED_AT<=$1
+	`
+
+	_, err = s.db.Exec(deleteQuery, expirationTime)
+	if err != nil {
+		return nil, err
+	}
+
+	log.Println("Deleted files")
+	keyStr := strings.Join(fileKeys, ", ")
+	log.Println(keyStr)
+	return fileKeys, nil
 }

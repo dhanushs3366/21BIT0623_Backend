@@ -62,6 +62,8 @@ func Init(database *sql.DB) (*Hanlder, error) {
 	userGroup.GET("/share", h.getPublicURL)
 	userGroup.GET("/files/search", h.searchFiles)
 
+	h.startBackgroundWorker()
+
 	return &h, nil
 }
 
