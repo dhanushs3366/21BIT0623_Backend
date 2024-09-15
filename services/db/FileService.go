@@ -1,6 +1,10 @@
 package db
 
-import "time"
+import (
+	"time"
+
+	"github.com/dhanushs3366/21BIT0623_Backend.git/models"
+)
 
 func (s *Store) CreateFileTable() error {
 	query := `
@@ -31,12 +35,12 @@ func (s *Store) InsertFile(userID uint, s3Key string) error {
 	return err
 }
 
-func (s *Store) GetFileKey(fileID string) (string, error) {
+func (s *Store) GetFileKey(fileID string, userID uint) (string, error) {
 	query := `
 		SELECT S3_KEY FROM FILES 
-		WHERE ID=$1
+		WHERE ID=$1 AND USER_ID=$2
 	`
-	row := s.db.QueryRow(query, fileID)
+	row := s.db.QueryRow(query, fileID, userID)
 
 	var s3Key string
 	err := row.Scan(&s3Key)
@@ -48,20 +52,20 @@ func (s *Store) GetFileKey(fileID string) (string, error) {
 }
 
 // fet the last uploaded fileID
-func (s *Store) GetLatestFileID(userID uint) (string, error) {
+func (s *Store) GetLatestFileID(userID uint) (*models.File, error) {
 	query := `
-		SELECT ID FROM FILES
+		SELECT * FROM FILES
 		WHERE USER_ID=$1 
 		ORDER BY CREATED_AT DESC
 		LIMIT 1	
 	`
 	row := s.db.QueryRow(query, userID)
-	var fileID string
-	err := row.Scan(&fileID)
+	var file models.File
+	err := row.Scan(&file.ID, &file.UserID, &file.S3Key, &file.CreatedAt, &file.UpdatedAt)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
-	return fileID, nil
+	return &file, nil
 
 }

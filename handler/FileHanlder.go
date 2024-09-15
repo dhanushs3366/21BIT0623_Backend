@@ -50,13 +50,13 @@ func (h *Hanlder) handleFileUpload(c echo.Context) error {
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, err.Error())
 	}
-	fileID, err := h.store.GetLatestFileID(userID)
+	latesFile, err := h.store.GetLatestFileID(userID)
 
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, err.Error())
 	}
 
-	err = h.store.InsertMetaData(fileID, file.Filename, uint(file.Size), fileType, description)
+	err = h.store.InsertMetaData(latesFile.ID, file.Filename, uint(file.Size), fileType, description)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, err.Error())
 	}
@@ -68,32 +68,18 @@ func (h *Hanlder) handleFileUpload(c echo.Context) error {
 	}
 
 	// Cache meta data
-	err = h.redis.Add(fmt.Sprintf("user:%d:file:%s", userID, fileID), metadata)
+	err = h.redis.Add(fmt.Sprintf("user:%d:file:%d", userID, latesFile.ID), metadata)
 
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, err.Error())
 	}
 
-	return c.JSON(http.StatusOK, "Cached and uploaded the file")
-}
-
-func (h *Hanlder) getPreSignedURL(c echo.Context) error {
-	fileID := c.QueryParam("fileID")
-
-	// fileID is of string type the sql package handles the conversion
-	// fileID is string converting it to uint would add more unecessary err checking
-	s3Key, err := h.store.GetFileKey(fileID)
+	presignedURL, err := h.s3.GeneratePresignedURL(latesFile.S3Key, s3service.PUBLIC_DEFAULT_EXPIRATION*time.Hour)
 
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, err.Error())
 	}
-
-	preSignedURL, err := h.s3.GeneratePresignedURL(s3Key, time.Hour)
-
-	if err != nil {
-		return c.JSON(http.StatusInternalServerError, err.Error())
-	}
-	return c.JSON(http.StatusOK, map[string]string{"url": preSignedURL})
+	return c.JSON(http.StatusOK, map[string]string{"url": presignedURL})
 }
 
 func (h *Hanlder) getFileMetadata(c echo.Context) error {
@@ -144,13 +130,13 @@ func (h *Hanlder) uploadFile(file *multipart.FileHeader, description string, use
 		return
 	}
 
-	fileID, err := h.store.GetLatestFileID(userID)
+	latesFile, err := h.store.GetLatestFileID(userID)
 	if err != nil {
 		errChan <- fmt.Errorf("error retrieving latest file ID: %w", err)
 		return
 	}
 
-	err = h.store.InsertMetaData(fileID, file.Filename, uint(file.Size), fileType, description)
+	err = h.store.InsertMetaData(latesFile.ID, file.Filename, uint(file.Size), fileType, description)
 	if err != nil {
 		errChan <- fmt.Errorf("error inserting file metadata: %w", err)
 		return
@@ -189,4 +175,35 @@ func (h *Hanlder) handleBulkUpload(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, "All files uploaded successfully!")
+}
+
+func (h *Hanlder) getPublicURL(c echo.Context) error {
+	// in seconds
+	expirationTimeStr := c.QueryParam("expirationTime")
+	fileID := c.QueryParam("fileID")
+	userID, err := services.GetUserIDFromToken(c)
+
+	if err != nil {
+		return c.JSON(http.StatusUnauthorized, err.Error())
+	}
+
+	if expirationTimeStr == "" || fileID == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Error in query params"})
+	}
+	expirationTime, err := time.ParseDuration(expirationTimeStr + "s")
+
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid time expression"})
+	}
+	objKey, err := h.store.GetFileKey(fileID, userID)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Error getting file key"})
+	}
+	//  get pre signed url
+	URL, err := h.s3.GeneratePresignedURL(objKey, expirationTime)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Error generating pre-signed URL"})
+	}
+
+	return c.JSON(http.StatusOK, map[string]string{"url": URL})
 }

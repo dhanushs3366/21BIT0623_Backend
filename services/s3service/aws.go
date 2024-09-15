@@ -52,7 +52,7 @@ func (c *S3Service) PutObject(file multipart.File, header multipart.FileHeader, 
 }
 
 func (c *S3Service) GeneratePresignedURL(objectKey string, expiration time.Duration) (string, error) {
-	req, _ := c.client.PutObjectRequest(&s3.PutObjectInput{
+	req, _ := c.client.GetObjectRequest(&s3.GetObjectInput{
 		Bucket: aws.String(c.bucketName),
 		Key:    aws.String(objectKey),
 	})

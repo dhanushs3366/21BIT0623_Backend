@@ -27,7 +27,7 @@ func (s *Store) CreateFileMetaDataTable() error {
 	return err
 }
 
-func (s *Store) InsertMetaData(fileID, filename string, fileSize uint, contentType models.FileType, description string) error {
+func (s *Store) InsertMetaData(fileID uint, filename string, fileSize uint, contentType models.FileType, description string) error {
 	query := `
 		INSERT INTO FILE_METADATA(FILE_ID,FILE_NAME,FILE_SIZE,CONTENT_TYPE,UPLOAD_DATE,DESCRIPTION)
 		VALUES($1,$2,$3,$4,$5,$6)
