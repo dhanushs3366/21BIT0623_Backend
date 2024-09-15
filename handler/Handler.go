@@ -7,6 +7,7 @@ import (
 
 	"github.com/dhanushs3366/21BIT0623_Backend.git/services"
 	"github.com/dhanushs3366/21BIT0623_Backend.git/services/db"
+	redisservice "github.com/dhanushs3366/21BIT0623_Backend.git/services/redisService"
 	"github.com/dhanushs3366/21BIT0623_Backend.git/services/s3service"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -16,6 +17,7 @@ type Hanlder struct {
 	router *echo.Echo
 	store  *db.Store
 	s3     *s3service.S3Service
+	redis  *redisservice.RedisClient
 }
 
 func Init(database *sql.DB) (*Hanlder, error) {
@@ -25,10 +27,15 @@ func Init(database *sql.DB) (*Hanlder, error) {
 		return nil, err
 	}
 
+	rdb, err := redisservice.GetNewRedisClient()
+	if err != nil {
+		return nil, err
+	}
 	h := Hanlder{
 		router: echo.New(),
 		store:  db.GetNewStore(database),
 		s3:     s3Client,
+		redis:  rdb,
 	}
 
 	userGroup := h.router.Group("/user")

@@ -66,3 +66,22 @@ func (s *Store) GetMetaData(userID uint) ([]models.FileMetaData, error) {
 
 	return metadata, nil
 }
+
+// get the last uploaded file's metadata
+func (s *Store) GetLatestMetaData() (*models.FileMetaData, error) {
+	query := `
+		SELECT M.* FROM FILE_METADATA M
+		INNER JOIN FILES F 
+		ON F.ID=M.FILE_ID
+		ORDER BY F.CREATED_AT DESC
+		LIMIT 1
+
+	`
+	var metadata models.FileMetaData
+	row := s.db.QueryRow(query)
+	err := row.Scan(&metadata.ID, &metadata.FileID, &metadata.FileName, &metadata.FileSize, &metadata.ContentType, &metadata.UploadDate, &metadata.Description)
+	if err != nil {
+		return nil, err
+	}
+	return &metadata, nil
+}
