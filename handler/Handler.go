@@ -58,8 +58,8 @@ func Init(database *sql.DB) (*Hanlder, error) {
 	})
 	userGroup.POST("/upload", h.handleFileUpload)
 	userGroup.POST("/upload/bulk", h.handleBulkUpload)
-	userGroup.GET("/files", h.getPreSignedURL)
 	userGroup.GET("/files/metadata", h.getFileMetadata)
+	userGroup.GET("/share", h.getPublicURL)
 
 	return &h, nil
 }

@@ -9,6 +9,8 @@ import (
 	"github.com/google/uuid"
 )
 
+const PUBLIC_DEFAULT_EXPIRATION = 1 //in hrs, default expiry time during upload of a file
+
 func getNewUUID() string {
 	uuid := uuid.New()
 	return uuid.String()

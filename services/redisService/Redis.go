@@ -37,7 +37,6 @@ func GetNewRedisClient() (*RedisClient, error) {
 // key-> user:userID:file:fileID
 // value -> metadata obj
 func (r *RedisClient) Add(key string, value *models.FileMetaData) error {
-	// Marshal the FileMetaData struct to JSON
 	jsonValue, err := json.Marshal(value)
 	if err != nil {
 		return err
@@ -45,4 +44,18 @@ func (r *RedisClient) Add(key string, value *models.FileMetaData) error {
 
 	err = r.client.Set(context.Background(), key, jsonValue, EXPIRATION_TIME).Err()
 	return err
+}
+
+func (r *RedisClient) Get(Key string) (*models.FileMetaData, error) {
+	jsonValue, err := r.client.Get(context.Background(), Key).Result()
+
+	if err != nil {
+		return nil, err
+	}
+	var metadata models.FileMetaData
+	err = json.Unmarshal([]byte(jsonValue), &metadata)
+	if err != nil {
+		return nil, err
+	}
+	return &metadata, nil
 }
