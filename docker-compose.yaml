@@ -14,8 +14,12 @@ services:
       - DB_USER=munke
       - DB_PASSWORD=trademarkia
       - DB_NAME=trademarkia
+      - REDIS_HOST=redis:6379
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=trademarkia
     depends_on:
       - postgres
+      - redis
 
   postgres:
     image: postgres:latest
@@ -28,6 +32,14 @@ services:
       - postgres-data:/var/lib/postgresql/data
     ports:
       - "5432:5432"
+
+  redis:
+    image: redis:latest
+    restart: always
+    environment:
+      REDIS_PASSWORD: trademarkia
+    ports:
+      - "6379:6379"
 
 volumes:
   postgres-data:

@@ -60,7 +60,21 @@ func (h *Hanlder) handleFileUpload(c echo.Context) error {
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, err.Error())
 	}
-	return c.JSON(http.StatusOK, fmt.Sprintf("uploaded the file %s", key))
+
+	metadata, err := h.store.GetLatestMetaData()
+
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, err.Error())
+	}
+
+	// Cache meta data
+	err = h.redis.Add(fmt.Sprintf("user:%d:file:%s", userID, fileID), metadata)
+
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, err.Error())
+	}
+
+	return c.JSON(http.StatusOK, "Cached and uploaded the file")
 }
 
 func (h *Hanlder) getPreSignedURL(c echo.Context) error {
