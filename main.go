@@ -9,7 +9,6 @@ import (
 )
 
 func main() {
-	defer db.Close()
 	err := godotenv.Load()
 	if err != nil {
 		panic(err)
