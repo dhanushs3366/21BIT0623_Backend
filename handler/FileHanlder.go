@@ -2,7 +2,9 @@ package handler
 
 import (
 	"fmt"
+	"mime/multipart"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/dhanushs3366/21BIT0623_Backend.git/services"
@@ -10,7 +12,7 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-func (h *Hanlder) uploadFile(c echo.Context) error {
+func (h *Hanlder) handleFileUpload(c echo.Context) error {
 	file, err := c.FormFile("file")
 	description := c.FormValue("description")
 	if err != nil {
@@ -92,4 +94,85 @@ func (h *Hanlder) getFileMetadata(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, err.Error())
 	}
 	return c.JSON(http.StatusOK, metadata)
+}
+
+func (h *Hanlder) uploadFile(file *multipart.FileHeader, description string, userID uint, errChan chan error, wg *sync.WaitGroup) {
+	defer wg.Done()
+
+	src, err := file.Open()
+	if err != nil {
+		errChan <- fmt.Errorf("error opening file: %w", err)
+		return
+	}
+	defer src.Close()
+
+	key, err := s3service.GenerateKeyForS3(file)
+	if err != nil {
+		errChan <- fmt.Errorf("error generating key for file: %w", err)
+		return
+	}
+
+	fileType, err := s3service.GetFileType(file)
+	if err != nil {
+		errChan <- fmt.Errorf("error determining file type: %w", err)
+		return
+	}
+
+	err = h.s3.PutObject(src, *file, key)
+	if err != nil {
+		errChan <- fmt.Errorf("error uploading file to S3: %w", err)
+		return
+	}
+
+	err = h.store.InsertFile(userID, key)
+	if err != nil {
+		errChan <- fmt.Errorf("error inserting file into DB: %w", err)
+		return
+	}
+
+	fileID, err := h.store.GetLatestFileID(userID)
+	if err != nil {
+		errChan <- fmt.Errorf("error retrieving latest file ID: %w", err)
+		return
+	}
+
+	err = h.store.InsertMetaData(fileID, file.Filename, uint(file.Size), fileType, description)
+	if err != nil {
+		errChan <- fmt.Errorf("error inserting file metadata: %w", err)
+		return
+	}
+
+	errChan <- nil
+}
+
+func (h *Hanlder) handleBulkUpload(c echo.Context) error {
+	form, err := c.MultipartForm()
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, err.Error())
+	}
+
+	files := form.File["files"]
+	description := c.FormValue("description")
+	userID, err := services.GetUserIDFromToken(c)
+	if err != nil {
+		return c.JSON(http.StatusUnauthorized, err.Error())
+	}
+	var wg sync.WaitGroup
+	errChan := make(chan error, len(files))
+
+	for _, file := range files {
+		wg.Add(1) // add counter
+		go h.uploadFile(file, description, userID, errChan, &wg)
+	}
+
+	wg.Wait()
+	close(errChan)
+
+	for err := range errChan {
+		if err != nil {
+			return c.JSON(http.StatusInternalServerError, fmt.Sprintf("Error uploading file: %v", err))
+		}
+	}
+
+	return c.JSON(http.StatusOK, "All files uploaded successfully!")
 }
